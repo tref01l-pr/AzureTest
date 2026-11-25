@@ -76,7 +76,7 @@ services:
     container_name: pdfshare-functions
     environment:
       AzureWebJobsStorage: *azurite-connection
-      Storage: *azurite-connection
+      PdfStorage: *azurite-connection
       BLOB_CONNECTION_STRING: *azurite-connection
       DATABASE_URL: *database-url
     depends_on:

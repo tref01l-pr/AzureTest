@@ -22,7 +22,7 @@ public sealed class ProcessPdfFunction(
 
     [Function("ProcessPdf")]
     public async Task Run(
-        [QueueTrigger(StorageNames.PdfUploadedQueue, Connection = "Storage")] PdfUploadedMessage message,
+        [QueueTrigger(StorageNames.PdfUploadedQueue, Connection = "PdfStorage")] PdfUploadedMessage message,
         CancellationToken ct)
     {
         var file = await filesRepository.GetByIdAsync<PdfFileStorageDto>(message.FileId, ct);

@@ -361,13 +361,13 @@ resource funcApp 'Microsoft.App/containerApps@2024-10-02-preview' = {
           resources: { cpu: json('0.5'), memory: '1Gi' }
           env: concat(commonEnv, [
             { name: 'FUNCTIONS_WORKER_RUNTIME', value: 'dotnet-isolated' }
-            // Host storage + trigger connection "Storage", both identity-based.
+            // Host storage + trigger connection "PdfStorage", both identity-based.
             { name: 'AzureWebJobsStorage__accountName', value: storage.name }
             { name: 'AzureWebJobsStorage__credential', value: 'managedidentity' }
             { name: 'AzureWebJobsStorage__clientId', value: identity.properties.clientId }
-            { name: 'Storage__queueServiceUri', value: queueServiceUri }
-            { name: 'Storage__credential', value: 'managedidentity' }
-            { name: 'Storage__clientId', value: identity.properties.clientId }
+            { name: 'PdfStorage__queueServiceUri', value: queueServiceUri }
+            { name: 'PdfStorage__credential', value: 'managedidentity' }
+            { name: 'PdfStorage__clientId', value: identity.properties.clientId }
           ])
         }
       ]

@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <PackageReference Include="Mapster" />
+    <PackageReference Include="CSharpFunctionalExtensions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\PdfShare.SharedKernel\PdfShare.SharedKernel.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,12 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <!-- CA1848/CA1873: LoggerMessage delegates are overkill for this project; CA2007: no ConfigureAwait in app code -->
+    <NoWarn>$(NoWarn);CA1848;CA1873;CA2007;CA1716;CA1711;CA1062;CA1515;CA1031</NoWarn>
+  </PropertyGroup>
+</Project>

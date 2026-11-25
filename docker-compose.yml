@@ -1,0 +1,106 @@
+# Full local stack:   docker compose up --build        → http://localhost:${WEB_PORT}
+# Only dependencies:  docker compose up db azurite     → then dotnet run / func start / npm run dev
+#
+# All settings come from the repo-root .env (compose reads it automatically; copy .env.example).
+# Only the in-network host names (db, azurite, backend) live here: inside Docker the services
+# reach each other by these names instead of localhost.
+# The Azurite key is the well-known public development key, not a secret.
+
+x-azurite-connection: &azurite-connection "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1;TableEndpoint=http://azurite:10002/devstoreaccount1;"
+x-database-url: &database-url "Server=db,1433;Database=${DB_NAME:-PdfShare};User Id=sa;Password=${DB_PASSWORD:?set DB_PASSWORD in .env};TrustServerCertificate=True;Encrypt=False;MultipleActiveResultSets=True"
+
+services:
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: pdfshare-db
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+      MSSQL_PID: Express
+    ports:
+      - "${DB_PORT:-1433}:1433"
+    volumes:
+      - db-data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -Q 'SELECT 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite:latest
+    container_name: pdfshare-azurite
+    command: azurite --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0 --location /data --loose --skipApiVersionCheck
+    ports:
+      - "10000:10000"
+      - "10001:10001"
+      - "10002:10002"
+    volumes:
+      - azurite-data:/data
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./BackEnd
+      dockerfile: PdfShare.API/Dockerfile
+    image: pdfshare-api:local
+    container_name: pdfshare-backend
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ENVIRONMENT:-Development}
+      DATABASE_URL: *database-url
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      ACCESS_TOKEN_MINUTES: ${ACCESS_TOKEN_MINUTES:-15}
+      REFRESH_TOKEN_DAYS: ${REFRESH_TOKEN_DAYS:-30}
+      BLOB_CONNECTION_STRING: *azurite-connection
+      # The browser downloads via SAS URLs: it must reach Azurite on localhost, not "azurite".
+      BLOB_PUBLIC_BASE_URL: ${BLOB_PUBLIC_BASE_URL:-http://localhost:10000}
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+      SEED_DEMO_USERS: ${SEED_DEMO_USERS:-false}
+      SEED_DEMO_PASSWORD: ${SEED_DEMO_PASSWORD:-}
+    ports:
+      - "${API_PORT:-5041}:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+      azurite:
+        condition: service_started
+    restart: unless-stopped
+
+  functions:
+    build:
+      context: ./BackEnd
+      dockerfile: PdfShare.Functions/Dockerfile
+    image: pdfshare-func:local
+    container_name: pdfshare-functions
+    environment:
+      AzureWebJobsStorage: *azurite-connection
+      Storage: *azurite-connection
+      BLOB_CONNECTION_STRING: *azurite-connection
+      DATABASE_URL: *database-url
+    depends_on:
+      backend:
+        condition: service_started   # the API applies EF migrations on start
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./FrontEnd
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
+    image: pdfshare-web:local
+    container_name: pdfshare-frontend
+    environment:
+      # nginx proxies /api/* here (same origin → no CORS, SameSite=Strict cookie works)
+      API_UPSTREAM: http://backend:8080
+    ports:
+      - "${WEB_PORT:-3000}:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  db-data:
+  azurite-data:
